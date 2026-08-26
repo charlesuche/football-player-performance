@@ -1,0 +1,22 @@
+Weka CFS Feature Selection Instructions
+========================================
+
+For each position ARFF file in output/weka/:
+
+1. Open Weka Explorer
+2. Preprocess tab -> Open file -> select e.g. forward_longitudinal.arff
+3. Classify tab -> Choose: weka.classifiers.meta.AttributeSelectedClassifier
+4. Click the classifier name to configure:
+   - evaluator: CfsSubsetEval
+   - search method: BestFirst
+5. Click 'Start' (use cross-validation or percentage split as preferred)
+6. In the output, note the 'Attributes' line listing selected features
+7. Add each selected feature to output/weka/weka_selected_features.csv:
+     position_group,feature
+     Forward,xgc_p90
+     Forward,shots_p90
+     ...
+
+8. Re-run: source('scripts/05_modeling.R')
+
+Compare Model A (Weka CFS) vs Model B (R CFS) in output/tables/model_results.csv

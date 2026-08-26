@@ -1,0 +1,14 @@
+position_group,feature
+Forward,gc_p90
+Forward,xg_p90
+Forward,xag_p90
+Forward,xgc_p90
+Forward,npxg_p90
+Forward,dispossessed_p90
+Midfielder,xag_p90
+Midfielder,xgc_p90
+Midfielder,npxg_p90
+Defender,key_passes_p90
+Defender,tackles_att_third_p90
+Defender,def_actions_p90
+Defender,aerial_efficiency
