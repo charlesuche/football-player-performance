@@ -16,8 +16,6 @@ MIN_MINUTES_LONGITUDINAL <- 900
 
 player_seasons <- readRDS(file.path(PROCESSED_DIR, "player_seasons_clean.rds"))
 
-message("Building composite features for ", nrow(player_seasons), " player-seasons")
-
 # --- Composite features (season N predictors) --------------------------------
 
 player_seasons <- player_seasons %>%
@@ -31,35 +29,43 @@ player_seasons <- player_seasons %>%
 
     # Efficiency ratios (handle division by zero)
     dribble_success_rate = ifelse(
-      dribbles_att_p90 > 0, dribbles_succ_p90 / dribbles_att_p90, NA_real_
+      dribbles_att_p90 > 0, dribbles_succ_p90 / dribbles_att_p90, 0
     ),
     aerial_efficiency = ifelse(
       (aerials_won_p90 + aerials_lost_p90) > 0,
       aerials_won_p90 / (aerials_won_p90 + aerials_lost_p90),
-      NA_real_
+      0
     ),
     discipline_ratio = ifelse(
-      fouls_committed_p90 > 0, fouls_drawn_p90 / fouls_committed_p90, NA_real_
+      fouls_committed_p90 > 0, fouls_drawn_p90 / fouls_committed_p90, 0
     )
   )
 
 # --- Feature columns used as predictors --------------------------------------
 
 feature_cols <- c(
-  "goals_p90", "assists_p90", "gc_p90", "xg_p90", "xag_p90", "xgc_p90", "npxg_p90",
+  "goals_p90", "assists_p90", "gc_p90", "xg_p90", "xag_p90",
+  "xgc_p90", "npxg_p90",
+  
   "prog_passes_p90", "prog_carries_p90", "prog_receptions_p90",
+  
   "shots_p90", "sot_p90", "npxg_per_shot", "shot_distance",
+  
   "pass_completion_pct", "key_passes_p90", "passes_final_third_p90",
-  "passes_pen_area_p90", "progressive_passes_p90",
+  "passes_pen_area_p90",
+  
   "tackles_p90", "tackles_won_p90", "tackles_def_third_p90",
   "tackles_mid_third_p90", "tackles_att_third_p90",
   "blocks_p90", "interceptions_p90", "clearances_p90", "errors_p90",
   "def_actions_p90",
+  
   "touches_p90", "pen_area_touches_p90", "dribbles_att_p90",
-  "dribbles_succ_p90", "dribble_success_rate", "progressive_carries_p90",
+  "dribbles_succ_p90", "dribble_success_rate",
   "miscontrols_p90", "dispossessed_p90",
+  
   "fouls_committed_p90", "fouls_drawn_p90", "discipline_ratio",
-  "ball_recoveries_p90", "aerials_won_p90", "aerials_lost_p90", "aerial_efficiency"
+  "ball_recoveries_p90", "aerials_won_p90", "aerials_lost_p90",
+  "aerial_efficiency"
 )
 length(feature_cols)
 feature_cols <- feature_cols[feature_cols %in% names(player_seasons)]
