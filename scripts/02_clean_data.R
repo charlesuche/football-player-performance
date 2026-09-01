@@ -244,6 +244,112 @@ player_seasons <- player_club %>%
     .groups = "drop"
   )
 
+cat("Before:", nrow(player_seasons), "rows x",
+    ncol(player_seasons), "cols\n")
+cat("Missing before:", sum(is.na(player_seasons)), "\n\n")
+
+
+# ── Step 1: Drop redundant columns ──────────────────────────
+player_seasons <- player_seasons %>%
+  select(-any_of(c(
+    "progressive_passes_p90",   # 29% NA — covered by prog_passes_p90
+    "progressive_carries_p90",  # duplicate of prog_carries_p90
+    "prog_receptions_po_p90"    # duplicate of prog_receptions_p90
+  )))
+
+cat("After dropping redundant cols:", ncol(player_seasons), "cols\n")
+
+
+# ── Step 2: Zero-fill npxg_per_shot where shots = 0 ────────
+# A player who took no shots has npxg_per_shot = 0, not NA
+player_seasons <- player_seasons %>%
+  mutate(
+    npxg_per_shot = case_when(
+      shots_p90 == 0 ~ 0,
+      TRUE           ~ npxg_per_shot
+    ),
+    shot_distance = case_when(
+      shots_p90 == 0 ~ 0,
+      TRUE           ~ shot_distance
+    )
+  )
+
+
+# ── Step 3: Median imputation by position group + season ───
+# For remaining NAs — use median of same position + season
+# This handles the 9 incomplete rows and any residual NAs
+
+# Identify numeric columns that still have NAs
+na_cols <- player_seasons %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(everything(),
+               names_to = "col",
+               values_to = "n_missing") %>%
+  filter(n_missing > 0) %>%
+  pull(col)
+
+cat(sprintf("\nColumns still needing imputation (%d):\n",
+            length(na_cols)))
+print(na_cols)
+
+# Impute using position group + season median
+player_seasons <- player_seasons %>%
+  group_by(position_group, season_end_year) %>%
+  mutate(across(
+    all_of(na_cols),
+    ~ if_else(is.na(.x),
+              median(.x, na.rm = TRUE),
+              .x)
+  )) %>%
+  ungroup()
+
+# Safety net — if any group had all NAs, fall back to
+# global position median
+still_na <- player_seasons %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(everything(),
+               names_to = "col",
+               values_to = "n_missing") %>%
+  filter(n_missing > 0)
+
+if (nrow(still_na) > 0) {
+  cat("\nFallback: global position median for remaining NAs\n")
+  remaining_cols <- still_na$col
+  
+  player_seasons <- player_seasons %>%
+    group_by(position_group) %>%
+    mutate(across(
+      all_of(remaining_cols),
+      ~ if_else(is.na(.x),
+                median(.x, na.rm = TRUE),
+                .x)
+    )) %>%
+    ungroup()
+}
+
+
+# ── Final check ─────────────────────────────────────────────
+final_na <- sum(is.na(player_seasons))
+
+cat(sprintf("\nFinal: %d rows x %d columns\n",
+            nrow(player_seasons), ncol(player_seasons)))
+cat(sprintf("Missing values remaining: %d\n", final_na))
+
+if (final_na == 0) {
+  cat("✓ Clean — no missing values.\n")
+} else {
+  cat("⚠ Still missing — check these columns:\n")
+  player_seasons %>%
+    summarise(across(everything(), ~ sum(is.na(.)))) %>%
+    pivot_longer(everything(),
+                 names_to = "col",
+                 values_to = "n_missing") %>%
+    filter(n_missing > 0) %>%
+    print()
+}
+
+
+
 # Save cleaned player-season data
 saveRDS(player_seasons, file.path(PROCESSED_DIR, "player_seasons_clean.rds"))
 write_csv(player_seasons, file.path(PROCESSED_DIR, "player_seasons_clean.csv"))
