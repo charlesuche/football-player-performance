@@ -19,9 +19,6 @@ dir.create(PROCESSED_DIR, recursive = TRUE, showWarnings = FALSE)
 
 load_raw <- function(stat_type) {
   path <- file.path(RAW_DIR, paste0("big5_player_", stat_type, ".rds"))
-  if (!file.exists(path)) {
-    stop("Missing raw file: ", path, ". Run scripts/01_collect_data.R first.")
-  }
   readRDS(path)
 }
 
@@ -32,13 +29,6 @@ defense  <- load_raw("defense")
 possession <- load_raw("possession")
 misc     <- load_raw("misc")
 
-message("Loaded raw tables:")
-message("  standard:   ", nrow(standard), " rows")
-message("  shooting:   ", nrow(shooting), " rows")
-message("  passing:    ", nrow(passing), " rows")
-message("  defense:    ", nrow(defense), " rows")
-message("  possession: ", nrow(possession), " rows")
-message("  misc:       ", nrow(misc), " rows")
 
 # --- Build a player-club-season base from standard stats ---------------------
 
@@ -55,7 +45,10 @@ base <- standard %>%
   ) %>%
   mutate(
     position_group = assign_position_group(pos),
-    minutes_90s = min_playing / 90
+    minutes_90s = min_playing / 90,
+    prg_p_progression = prg_p_progression / minutes_90s,
+    prg_c_progression = prg_c_progression / minutes_90s,
+    prg_r_progression = prg_r_progression / minutes_90s
   ) %>%
   filter(!is.na(position_group))  # removes goalkeepers
 
@@ -250,8 +243,6 @@ player_seasons <- player_club %>%
     across(all_of(rate_cols), ~ weighted.mean(.x, min_playing, na.rm = TRUE)),
     .groups = "drop"
   )
-
-message("Player-season rows after transfer aggregation: ", nrow(player_seasons))
 
 # Save cleaned player-season data
 saveRDS(player_seasons, file.path(PROCESSED_DIR, "player_seasons_clean.rds"))
