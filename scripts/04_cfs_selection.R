@@ -5,7 +5,7 @@
 # Replicates Weka CfsSubsetEval + BestFirst:
 #   1. Pearson r of each feature with target; drop |r| < 0.10
 #   2. Greedy selection by |r|; skip redundant features (inter-r > 0.80)
-# Run separately for each position group.
+# Run separately for each position group...
 # =============================================================================
 
 library(tidyverse)
