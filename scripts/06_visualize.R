@@ -98,7 +98,6 @@ ggsave("output/figures/02_parsimony_curve.png", p_parsimony,
        width = 10, height = 6, dpi = 150)
 
 ggsave(file.path(FIGURE_DIR, "02_parsimony_curve.png"), p_parsimony, width = 10, height = 6, dpi = 150)
-message("Saved: 02_parsimony_curve.png")
 p_parsimony
 # --- 3. Feature importance (top 10 per position, Baseline model) ------------
 
@@ -110,20 +109,31 @@ top_importance <- importance %>%
   ungroup() %>%
   mutate(feature = reorder(feature, importance_pct_inc_mse))
 
+library(tidytext) # Add this at the top of 06_visualize.R
+
 if (nrow(top_importance) > 0) {
   p_importance <- top_importance %>%
-    ggplot(aes(x = importance_pct_inc_mse, y = feature, fill = position_group)) +
+    ggplot(aes(x = importance_pct_inc_mse,
+               y = reorder_within(feature, importance_pct_inc_mse,
+                                  position_group),
+               fill = position_group)) +
     geom_col(show.legend = FALSE) +
     facet_wrap(~ position_group, scales = "free_y") +
+    scale_y_reordered() +
+    scale_fill_manual(values = c(
+      "Forward"    = "red",
+      "Midfielder" = "blue",
+      "Defender"   = "green"
+    )) +
     labs(
-      title = "Top 10 Feature Importances by Position (Baseline RF)",
+      title    = "Top 10 Feature Importances by Position (Baseline RF)",
       subtitle = "Permutation importance: % increase in MSE when feature is permuted",
-      x = "% Increase in MSE",
-      y = NULL
+      x        = "% Increase in MSE",
+      y        = NULL
     )
-
-  ggsave(file.path(FIGURE_DIR, "03_feature_importance.png"), p_importance, width = 12, height = 8, dpi = 150)
-  message("Saved: 03_feature_importance.png")
+  
+  ggsave(file.path(FIGURE_DIR, "03_feature_importance.png"),
+         p_importance, width = 12, height = 8, dpi = 150)
 }
 p_importance
 # --- 4. Predicted vs actual scatter plots -----------------------------------
@@ -131,13 +141,14 @@ p_importance
 r2_labels <- predictions %>%
   filter(model == "Baseline") %>%
   mutate(position_group = factor(position_group,
-                                  levels = c("Forward","Midfielder","Defender"))) %>%
+                                 levels = c("Forward","Midfielder","Defender"))) %>%
   group_by(position_group) %>%
-  summarise(r2 = round(cor(actual, predicted)^2, 3),
-            x  = quantile(actual, 0.15),
-            y  = max(predicted) * 0.95,
-            .groups = "drop") %>%
-  mutate(label = paste0("R² = ", r2))
+  summarise(
+    r2 = round(cor(actual, predicted)^2, 3),
+    x  = min(actual) + 0.05 * (max(actual) - min(actual)),
+    y  = max(predicted) * 0.90,
+    .groups = "drop"
+  )
 
 p_pred_actual <- predictions %>%
   filter(model == "Baseline") %>%
@@ -148,13 +159,13 @@ p_pred_actual <- predictions %>%
   geom_abline(slope = 1, intercept = 0,
               colour = "black", linetype = "dashed", linewidth = 0.8) +
   geom_text(data = r2_labels,
-            aes(x = x, y = y, label = label),
+            aes(x = x, y = y, label = paste0("R² = ", r2)),
             inherit.aes = FALSE,
-            fontface = "bold", size = 4) +
+            fontface = "bold", size = 4, hjust = 0) +
   facet_wrap(~ position_group, scales = "free") +
-  scale_colour_manual(values = c("Forward"    = "#E41A1C",
-                                  "Midfielder" = "#377EB8",
-                                  "Defender"   = "#4DAF4A")) +
+  scale_colour_manual(values = c("Forward"    = "red",
+                                  "Midfielder" = "blue",
+                                  "Defender"   = "green")) +
   labs(
     title    = "Predicted vs Actual (Baseline Random Forest)",
     subtitle = "Dashed line = perfect prediction | Each dot = one player-season",
@@ -166,7 +177,6 @@ ggsave("output/figures/04_predicted_vs_actual.png", p_pred_actual,
        width = 12, height = 5, dpi = 150)
 
 ggsave(file.path(FIGURE_DIR, "04_predicted_vs_actual.png"), p_pred_actual, width = 12, height = 5, dpi = 150)
-message("Saved: 04_predicted_vs_actual.png")
 p_pred_actual
 # --- 5. Year-on-year stability: target distribution by season pair ----------
 
@@ -195,7 +205,6 @@ ggsave("output/figures/05_year_on_year_stability.png", p_stability,
        width = 12, height = 6, dpi = 150)
 
 ggsave(file.path(FIGURE_DIR, "05_year_on_year_stability.png"), p_stability, width = 12, height = 6, dpi = 150)
-message("Saved: 05_year_on_year_stability.png")
 p_stability
 # --- 6. RMSE and MAE comparison ---------------------------------------------
 
@@ -218,7 +227,6 @@ p_metrics <- metrics_long %>%
   )
 
 ggsave(file.path(FIGURE_DIR, "06_rmse_mae_comparison.png"), p_metrics, width = 12, height = 5, dpi = 150)
-message("Saved: 06_rmse_mae_comparison.png")
 p_metrics
-message("\nAll figures saved to ", FIGURE_DIR, "/")
+
 
