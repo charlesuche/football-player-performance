@@ -26,7 +26,7 @@ feature_cols <- readRDS(file.path(PROCESSED_DIR, "feature_columns.rds"))
 cfs_r <- readRDS(file.path(PROCESSED_DIR, "cfs_selected_features.rds"))
 
 
-# Load Weka CFS features if available (user fills in after running Weka)
+
 weka_features <- list()
 if (file.exists(WEKA_FEATURES_FILE)) {
   weka_df <- read_csv(WEKA_FEATURES_FILE, show_col_types = FALSE)
@@ -61,6 +61,8 @@ fit_rf_model <- function(train_x, train_y, test_x, test_y, ntree = 500) {
     importance = TRUE
   )
 
+  #plot(rf_model, main = "OOB Error vs Number of Trees")
+  
   predictions <- predict(rf_model, test_x)
   metrics <- compute_regression_metrics(test_y, predictions)
 
@@ -90,55 +92,68 @@ model_configs <- list(
 
 for (pos in positions) {
   message("\n=== ", pos, " ===")
-
+  
   pos_data <- longitudinal %>%
     filter(position_group == pos) %>%
     filter(!is.na(target_next))
-
-  # Determine feature sets for this position
+  
+  # ── Fix: create one fixed split for this position ──────
+  # All three models (Baseline, Weka, R CFS) use the
+  # exact same train and test rows
+  set.seed(42)
+  n_pos <- nrow(pos_data)
+  pos_train_idx <- sample(seq_len(n_pos), size = floor(0.8 * n_pos))
+  pos_test_idx  <- setdiff(seq_len(n_pos), pos_train_idx)
+  
+  cat(sprintf("  Fixed split: %d train / %d test\n",
+              length(pos_train_idx), length(pos_test_idx)))
+  # ────────────────────────────────────────────────────────
+  
   feature_sets <- list(
-    Baseline = feature_cols,
+    Baseline      = feature_cols,
     Model_B_R_CFS = cfs_r[[pos]]
   )
-
+  
   if (pos %in% names(weka_features) && length(weka_features[[pos]]) > 0) {
     feature_sets$Model_A_Weka_CFS <- weka_features[[pos]]
   }
-
+  
   for (model_name in names(feature_sets)) {
     feats <- feature_sets[[model_name]]
     feats <- feats[feats %in% names(pos_data)]
-
-    if (length(feats) < 2) {
-      message("  Skipping ", model_name, " (insufficient features)")
-      next
-    }
-
-    # Prepare data with complete cases
+    
+    if (length(feats) < 2) next
+    
+    # ── Use the fixed split indices ─────────────────────
     model_df <- pos_data %>%
-      select(target_next, all_of(feats)) %>%
-      drop_na()
-
-    if (nrow(model_df) < 50) {
-      message("  Skipping ", model_name, " (only ", nrow(model_df), " complete cases)")
+      select(target_next, all_of(feats))
+    
+    # Apply the fixed split — same rows every model
+    train <- model_df[pos_train_idx, ]
+    test  <- model_df[pos_test_idx,  ]
+    
+    # Drop NA within each split separately
+    train <- drop_na(train)
+    test  <- drop_na(test)
+    # ────────────────────────────────────────────────────
+    
+    if (nrow(train) < 50 || nrow(test) < 10) {
+      message("  Skipping ", model_name, " (too few complete cases)")
       next
     }
-
-    n <- nrow(model_df)
-    train_idx <- sample(seq_len(n), size = floor(0.8 * n))
-
-    train_x <- as.matrix(model_df[train_idx, feats, drop = FALSE])
-    test_x  <- as.matrix(model_df[-train_idx, feats, drop = FALSE])
-    train_y <- model_df$target_next[train_idx]
-    test_y  <- model_df$target_next[-train_idx]
-
-    # Standardise on training set only
+    
+    train_x <- as.matrix(train[, feats, drop = FALSE])
+    test_x  <- as.matrix(test[,  feats, drop = FALSE])
+    train_y <- train$target_next
+    test_y  <- test$target_next
+    
     scaled <- standardize_features(train_x, test_x)
-
+    
     message("  ", model_name, ": ", length(feats), " features, ",
-            length(train_idx), " train / ", n - length(train_idx), " test")
-
+            nrow(train), " train / ", nrow(test), " test")
+    
     fit <- fit_rf_model(scaled$train, train_y, scaled$test, test_y)
+    
 
     results_table <- bind_rows(
       results_table,
@@ -146,8 +161,8 @@ for (pos in positions) {
         position_group = pos,
         model = model_name,
         n_features = length(feats),
-        n_train = length(train_idx),
-        n_test = n - length(train_idx),
+        n_train = nrow(train),
+        n_test = nrow(test),
         r2 = fit$metrics$r2,
         rmse = fit$metrics$rmse,
         mae = fit$metrics$mae

@@ -57,7 +57,7 @@ p_r2 <- results %>%
   )
 
 ggsave(file.path(FIGURE_DIR, "01_r2_comparison.png"), p_r2, width = 10, height = 6, dpi = 150)
-message("Saved: 01_r2_comparison.png")
+p_r2
 
 # --- 2. Parsimony curve: R² vs number of features ---------------------------
 
@@ -85,7 +85,7 @@ p_parsimony <- results %>%
     values = c("Baseline" = 16, "Weka CFS" = 17, "R CFS" = 15),
     name = "Model"
   ) +
-  scale_x_continuous(breaks = c(3, 4, 6, 20, 27, 34, 44)) +
+  scale_x_continuous(breaks = c(3, 4, 6, 19, 25, 33, 42)) +
   ylim(0.40, 0.68) +
   labs(
     title    = "Parsimony Curve: Model Performance vs Feature Count",
@@ -221,3 +221,4 @@ ggsave(file.path(FIGURE_DIR, "06_rmse_mae_comparison.png"), p_metrics, width = 1
 message("Saved: 06_rmse_mae_comparison.png")
 p_metrics
 message("\nAll figures saved to ", FIGURE_DIR, "/")
+
