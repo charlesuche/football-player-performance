@@ -144,7 +144,11 @@ r2_labels <- predictions %>%
                                  levels = c("Forward","Midfielder","Defender"))) %>%
   group_by(position_group) %>%
   summarise(
-    r2 = round(cor(actual, predicted)^2, 3),
+    r2 = round(
+      1 - sum((actual - predicted)^2) /
+        sum((actual - mean(actual))^2),
+      3
+    ),
     x  = min(actual) + 0.05 * (max(actual) - min(actual)),
     y  = max(predicted) * 0.90,
     .groups = "drop"
